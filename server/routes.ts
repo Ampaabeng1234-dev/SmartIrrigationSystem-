@@ -395,6 +395,102 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Profile update endpoint (authenticated users can update their own profile)
+  app.put("/api/users/:id/profile", requireAuth, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { username, email } = req.body;
+      
+      // Users can only update their own profile unless they are admin
+      if (userId !== req.user?.id && req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Can only update your own profile" });
+      }
+
+      // Check if username is already taken by another user
+      if (username) {
+        const existingUser = await storage.getUserByUsername(username);
+        if (existingUser && existingUser.id !== userId) {
+          return res.status(400).json({ message: "Username already exists" });
+        }
+      }
+
+      // Check if email is already taken by another user
+      if (email) {
+        const existingUser = await storage.getUserByEmail(email);
+        if (existingUser && existingUser.id !== userId) {
+          return res.status(400).json({ message: "Email already exists" });
+        }
+      }
+
+      const updatedUser = await storage.updateUser(userId, { username, email });
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Remove password from response
+      const { password: _, ...safeUser } = updatedUser;
+      res.json(safeUser);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  // Password change endpoint (authenticated users can change their own password)
+  app.put("/api/users/:id/password", requireAuth, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { currentPassword, newPassword } = req.body;
+      
+      // Users can only change their own password unless they are admin
+      if (userId !== req.user?.id && req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Can only change your own password" });
+      }
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Current password and new password are required" });
+      }
+
+      // Get user to verify current password
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Verify current password (unless admin is changing another user's password)
+      if (userId === req.user?.id) {
+        const { scrypt, randomBytes, timingSafeEqual } = await import("crypto");
+        const { promisify } = await import("util");
+        const scryptAsync = promisify(scrypt);
+        
+        const [hashed, salt] = user.password.split(".");
+        const hashedBuf = Buffer.from(hashed, "hex");
+        const suppliedBuf = (await scryptAsync(currentPassword, salt, 64)) as Buffer;
+        
+        if (!timingSafeEqual(hashedBuf, suppliedBuf)) {
+          return res.status(400).json({ message: "Current password is incorrect" });
+        }
+      }
+
+      // Hash new password
+      const { scrypt, randomBytes } = await import("crypto");
+      const { promisify } = await import("util");
+      const scryptAsync = promisify(scrypt);
+      
+      const salt = randomBytes(16).toString("hex");
+      const buf = (await scryptAsync(newPassword, salt, 64)) as Buffer;
+      const hashedPassword = `${buf.toString("hex")}.${salt}`;
+
+      // Update password
+      await storage.updatePassword(userId, hashedPassword);
+
+      res.json({ message: "Password updated successfully" });
+    } catch (error) {
+      console.error("Error changing password:", error);
+      res.status(500).json({ message: "Failed to change password" });
+    }
+  });
+
   app.patch("/api/users/:id", requireAdmin, async (req, res) => {
     try {
       const userId = parseInt(req.params.id);

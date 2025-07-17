@@ -20,7 +20,8 @@ import {
   Cloud,
   Sun,
   Menu,
-  MessageCircle
+  MessageCircle,
+  UserCircle
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { NotificationDropdown } from "./notification-dropdown";
@@ -158,6 +159,12 @@ export function NavigationHeader() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <Link href="/profile">
+                  <DropdownMenuItem>
+                    <UserCircle className="h-4 w-4 mr-2" />
+                    Profile Settings
+                  </DropdownMenuItem>
+                </Link>
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="h-4 w-4 mr-2" />
                   Logout
