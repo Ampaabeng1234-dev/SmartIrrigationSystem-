@@ -37,14 +37,9 @@ export function ChatWidget() {
   const [message, setMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Don't show chat widget on auth page or for admin users on chat management page
-  if (!user || location === "/auth" || (user.role === "admin" && location === "/chat")) {
-    return null;
-  }
-
   const { data: messages, isLoading } = useQuery<ChatMessage[]>({
     queryKey: ["/api/chat/messages"],
-    enabled: isOpen,
+    enabled: isOpen && user,
     refetchInterval: isOpen ? 5000 : false, // Poll every 5 seconds when open
   });
 
@@ -72,13 +67,6 @@ export function ChatWidget() {
     },
   });
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (message.trim()) {
-      sendMessageMutation.mutate(message.trim());
-    }
-  };
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -93,6 +81,18 @@ export function ChatWidget() {
     // Consider messages from the last 24 hours as potentially unread
     new Date(msg.createdAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)
   ).length || 0;
+
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (message.trim()) {
+      sendMessageMutation.mutate(message.trim());
+    }
+  };
+
+  // Don't show chat widget on auth page or for admin users on chat management page
+  if (!user || location === "/auth" || (user.role === "admin" && location === "/chat")) {
+    return null;
+  }
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
