@@ -15,6 +15,15 @@ import { weatherService } from "./services/weather";
 import { sensorDataService } from "./services/sensorData";
 
 export function registerRoutes(app: Express): Server {
+  // Health check endpoint for Docker/monitoring
+  app.get("/api/health", (req, res) => {
+    res.status(200).json({ 
+      status: "healthy", 
+      timestamp: new Date().toISOString(),
+      version: "1.0.0"
+    });
+  });
+
   // Setup authentication routes
   setupAuth(app);
 
