@@ -46,6 +46,7 @@ Preferred communication style: Simple, everyday language.
 ### Data Models
 - **Users**: Username, email, password, role, timestamps
 - **Password Reset Tokens**: Secure tokens for password reset with expiration
+- **Profile Management**: Comprehensive user profile system with secure editing capabilities
 - **Crops**: Name, water requirements, optimal moisture levels, growth stages
 - **Irrigation Zones**: Field areas linked to crops with active status tracking
 - **Sensor Readings**: Real-time moisture, temperature, humidity data
@@ -66,6 +67,7 @@ Preferred communication style: Simple, everyday language.
 - Irrigation zone management with manual controls
 - User management (admin only)
 - Analytics and reporting pages
+- Profile management with dual-tab interface (Edit Profile & Change Password)
 - Mobile-responsive design with sheet navigation
 
 ## Data Flow

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
@@ -28,9 +28,15 @@ export default function AuthPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Redirect if already logged in (only after hooks are called)
+  // Redirect if already logged in using useEffect to avoid hooks violation
+  useEffect(() => {
+    if (user) {
+      setLocation("/");
+    }
+  }, [user, setLocation]);
+
+  // Don't render anything if user is logged in (redirect will happen in useEffect)
   if (user) {
-    setTimeout(() => setLocation("/"), 0);
     return null;
   }
 
