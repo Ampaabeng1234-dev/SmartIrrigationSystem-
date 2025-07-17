@@ -373,7 +373,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Invalid or expired reset token" });
       }
 
-      // Hash new password
+      // Hash new password using the same method as auth.ts
       const { scrypt, randomBytes } = await import("crypto");
       const { promisify } = await import("util");
       const scryptAsync = promisify(scrypt);
