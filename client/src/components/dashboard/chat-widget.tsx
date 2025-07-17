@@ -39,7 +39,7 @@ export function ChatWidget() {
 
   const { data: messages, isLoading } = useQuery<ChatMessage[]>({
     queryKey: ["/api/chat/messages"],
-    enabled: isOpen && user,
+    enabled: isOpen && !!user,
     refetchInterval: isOpen ? 5000 : false, // Poll every 5 seconds when open
   });
 
