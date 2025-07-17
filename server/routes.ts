@@ -265,10 +265,16 @@ export function registerRoutes(app: Express): Server {
     try {
       const { username, email, password, role } = req.body;
       
-      // Check if user already exists
-      const existingUser = await storage.getUserByUsername(username);
-      if (existingUser) {
+      // Check if username already exists
+      const existingUsername = await storage.getUserByUsername(username);
+      if (existingUsername) {
         return res.status(400).json({ message: "Username already exists" });
+      }
+
+      // Check if email already exists
+      const existingEmail = await storage.getUserByEmail(email);
+      if (existingEmail) {
+        return res.status(400).json({ message: "Email already exists" });
       }
 
       // Hash password
@@ -291,8 +297,19 @@ export function registerRoutes(app: Express): Server {
       // Remove password from response
       const { password: _, ...safeUser } = newUser;
       res.status(201).json(safeUser);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating user:", error);
+      
+      // Handle specific database constraint errors
+      if (error.code === '23505') {
+        if (error.constraint === 'users_username_unique') {
+          return res.status(400).json({ message: "Username already exists" });
+        }
+        if (error.constraint === 'users_email_unique') {
+          return res.status(400).json({ message: "Email already exists" });
+        }
+      }
+      
       res.status(500).json({ message: "Failed to create user" });
     }
   });
