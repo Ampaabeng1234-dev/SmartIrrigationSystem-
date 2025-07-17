@@ -28,24 +28,48 @@ export default function AuthPage() {
   const [showResetForm, setShowResetForm] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   // Redirect if already logged in using useEffect to avoid hooks violation
   useEffect(() => {
     if (user) {
+      setIsRedirecting(true);
       setLocation("/");
     }
   }, [user, setLocation]);
 
-  // Don't render the auth form if user is logged in (redirect will happen in useEffect)
-  if (user) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600">Redirecting to dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  // Create mutations for forgot password functionality
+  const forgotPasswordMutation = useMutation({
+    mutationFn: async (data: { email: string }) => {
+      const response = await apiRequest("POST", "/api/forgot-password", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      setSuccessMessage("Password reset instructions have been sent to your email.");
+      setErrorMessage("");
+    },
+    onError: (error: any) => {
+      setErrorMessage(error?.message || "Failed to send reset email. Please try again.");
+      setSuccessMessage("");
+    },
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (data: { token: string; newPassword: string }) => {
+      const response = await apiRequest("POST", "/api/reset-password", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      setSuccessMessage("Password has been reset successfully. You can now log in with your new password.");
+      setErrorMessage("");
+      setShowResetForm(false);
+      setResetPasswordData({ token: "", newPassword: "", confirmPassword: "" });
+    },
+    onError: (error: any) => {
+      setErrorMessage(error?.message || "Failed to reset password. Please try again.");
+      setSuccessMessage("");
+    },
+  });
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,54 +98,6 @@ export default function AuthPage() {
       setErrorMessage(error?.message || "Registration failed. Please try again.");
     }
   };
-
-  const forgotPasswordMutation = useMutation({
-    mutationFn: async (email: string) => {
-      const res = await apiRequest("POST", "/api/forgot-password", { email });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Failed to send reset email");
-      }
-      return await res.json();
-    },
-    onSuccess: (data) => {
-      setSuccessMessage(data.message);
-      setErrorMessage("");
-      if (data.resetToken) {
-        // For testing - in production, this would come via email
-        setResetPasswordData(prev => ({ ...prev, token: data.resetToken }));
-        setShowResetForm(true);
-      }
-    },
-    onError: (error: any) => {
-      console.error("Forgot password error:", error);
-      setErrorMessage(error.message || "Failed to send reset email");
-      setSuccessMessage("");
-    },
-  });
-
-  const resetPasswordMutation = useMutation({
-    mutationFn: async ({ token, newPassword }: { token: string; newPassword: string }) => {
-      const res = await apiRequest("POST", "/api/reset-password", { token, newPassword });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Failed to reset password");
-      }
-      return await res.json();
-    },
-    onSuccess: (data) => {
-      setSuccessMessage(data.message);
-      setErrorMessage("");
-      setShowResetForm(false);
-      setResetPasswordData({ token: "", newPassword: "", confirmPassword: "" });
-      setForgotPasswordData({ email: "" });
-    },
-    onError: (error: any) => {
-      console.error("Reset password error:", error);
-      setErrorMessage(error.message || "Failed to reset password");
-      setSuccessMessage("");
-    },
-  });
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,6 +136,17 @@ export default function AuthPage() {
       newPassword: resetPasswordData.newPassword
     });
   };
+
+  // Show redirect message if user is already logged in
+  if (isRedirecting) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">Redirecting to dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
