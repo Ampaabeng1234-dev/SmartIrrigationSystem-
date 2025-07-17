@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Leaf, Droplets, BarChart3, Shield, CheckCircle, AlertCircle } from "lucide-react";
+import { Leaf, Droplets, BarChart3, Shield, CheckCircle, AlertCircle, Home } from "lucide-react";
+import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 
 export default function AuthPage() {
@@ -151,6 +152,15 @@ export default function AuthPage() {
       {/* Left side - Authentication Forms */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
+          {/* Back to Home Button */}
+          <div className="mb-6">
+            <Link href="/">
+              <Button variant="ghost" size="sm" className="flex items-center space-x-2 text-gray-500 hover:text-gray-700">
+                <Home className="h-4 w-4" />
+                <span>Back to App</span>
+              </Button>
+            </Link>
+          </div>
           <div className="text-center mb-8">
             <div className="flex items-center justify-center mb-4">
               <Leaf className="h-10 w-10 text-primary mr-2" />
