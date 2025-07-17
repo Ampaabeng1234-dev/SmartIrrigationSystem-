@@ -1,19 +1,80 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Edit, Trash2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { UserPlus, Edit, Trash2, Users, Shield, User } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+
+const addUserSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  role: z.enum(["user", "admin"], {
+    required_error: "Please select a role",
+  }),
+});
+
+type AddUserForm = z.infer<typeof addUserSchema>;
+
+interface User {
+  id: number;
+  username: string;
+  email: string;
+  role: string;
+  createdAt: string;
+}
 
 export function UserManagement() {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
-  const { data: users, isLoading } = useQuery({
+  const form = useForm<AddUserForm>({
+    resolver: zodResolver(addUserSchema),
+    defaultValues: {
+      username: "",
+      email: "",
+      password: "",
+      role: "user",
+    },
+  });
+
+  const { data: users, isLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
     enabled: currentUser?.role === "admin",
+  });
+
+  const addUserMutation = useMutation({
+    mutationFn: async (userData: AddUserForm) => {
+      const response = await apiRequest("POST", "/api/users", userData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      setIsAddDialogOpen(false);
+      form.reset();
+      toast({
+        title: "User Added",
+        description: "New user has been successfully created.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const deleteUserMutation = useMutation({
@@ -36,18 +97,47 @@ export function UserManagement() {
     },
   });
 
-  const handleDeleteUser = (userId: number) => {
-    if (confirm("Are you sure you want to delete this user?")) {
+  const updateUserRoleMutation = useMutation({
+    mutationFn: async ({ userId, role }: { userId: number; role: string }) => {
+      const response = await apiRequest("PATCH", `/api/users/${userId}`, { role });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({
+        title: "Role Updated",
+        description: "User role has been successfully updated.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleAddUser = (data: AddUserForm) => {
+    addUserMutation.mutate(data);
+  };
+
+  const handleDeleteUser = (userId: number, username: string) => {
+    if (confirm(`Are you sure you want to delete user "${username}"?`)) {
       deleteUserMutation.mutate(userId);
     }
+  };
+
+  const handleRoleChange = (userId: number, newRole: string) => {
+    updateUserRoleMutation.mutate({ userId, role: newRole });
   };
 
   const getRoleColor = (role: string) => {
     return role === "admin" ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-800";
   };
 
-  const getStatusColor = (role: string) => {
-    return "bg-green-100 text-green-800";
+  const getRoleIcon = (role: string) => {
+    return role === "admin" ? <Shield className="h-4 w-4" /> : <User className="h-4 w-4" />;
   };
 
   if (currentUser?.role !== "admin") {
@@ -71,82 +161,185 @@ export function UserManagement() {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>User Management</CardTitle>
-          <Button className="bg-primary hover:bg-primary/90">
-            <UserPlus className="h-4 w-4 mr-2" />
-            Add User
-          </Button>
+          <CardTitle className="flex items-center">
+            <Users className="h-5 w-5 mr-2 text-primary" />
+            User Management
+          </CardTitle>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Add User
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Add New User</DialogTitle>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(handleAddUser)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Username</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter username" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="Enter email address" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="Enter password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="role"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Role</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select user role" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="user">User</SelectItem>
+                            <SelectItem value="admin">Administrator</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex justify-end space-x-2 pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsAddDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={addUserMutation.isPending}
+                      className="bg-primary hover:bg-primary/90"
+                    >
+                      {addUserMutation.isPending ? "Adding..." : "Add User"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  User
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {users?.map((user: any) => (
-                <tr key={user.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white text-sm font-medium mr-3">
-                        {user.username.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{user.username}</div>
-                        <div className="text-sm text-gray-500">{user.email}</div>
-                      </div>
+        {users && users.length > 0 ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <Users className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                <p className="text-sm font-medium text-blue-900">Total Users</p>
+                <p className="text-2xl font-bold text-blue-600">{users.length}</p>
+              </div>
+              <div className="text-center p-4 bg-purple-50 rounded-lg">
+                <Shield className="h-8 w-8 mx-auto mb-2 text-purple-600" />
+                <p className="text-sm font-medium text-purple-900">Administrators</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {users.filter(user => user.role === 'admin').length}
+                </p>
+              </div>
+              <div className="text-center p-4 bg-green-50 rounded-lg">
+                <User className="h-8 w-8 mx-auto mb-2 text-green-600" />
+                <p className="text-sm font-medium text-green-900">Regular Users</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {users.filter(user => user.role === 'user').length}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {users.map((user) => (
+                <div
+                  key={user.id}
+                  className="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
+                >
+                  <div className="flex items-center">
+                    <div className="p-2 bg-gray-100 rounded-full mr-3">
+                      {getRoleIcon(user.role)}
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div>
+                      <p className="font-medium text-gray-900">{user.username}</p>
+                      <p className="text-sm text-gray-600">{user.email}</p>
+                      <p className="text-xs text-gray-500">
+                        Created: {new Date(user.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Select
+                      value={user.role}
+                      onValueChange={(newRole) => handleRoleChange(user.id, newRole)}
+                      disabled={user.id === currentUser?.id}
+                    >
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="user">User</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Badge className={getRoleColor(user.role)}>
-                      {user.role === "admin" ? "Administrator" : "User"}
+                      {user.role}
                     </Badge>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <Badge className={getStatusColor(user.role)}>
-                      Active
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex items-center justify-end space-x-2">
-                      <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-800">
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                    {user.id !== currentUser?.id && (
                       <Button
-                        variant="ghost"
+                        variant="destructive"
                         size="sm"
-                        className="text-red-600 hover:text-red-800"
-                        onClick={() => handleDeleteUser(user.id)}
-                        disabled={deleteUserMutation.isPending || user.id === currentUser?.id}
+                        onClick={() => handleDeleteUser(user.id, user.username)}
+                        disabled={deleteUserMutation.isPending}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
-                    </div>
-                  </td>
-                </tr>
+                    )}
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
-
-        {(!users || users.length === 0) && (
+            </div>
+          </div>
+        ) : (
           <div className="text-center py-8 text-gray-500">
-            <p>No users found.</p>
-            <p className="text-sm">Click "Add User" to create a new user account.</p>
+            <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <p className="text-lg font-medium mb-2">No users found</p>
+            <p className="text-sm mb-4">Add your first user to get started</p>
           </div>
         )}
       </CardContent>
