@@ -57,6 +57,10 @@ export default function AuthPage() {
   const forgotPasswordMutation = useMutation({
     mutationFn: async (email: string) => {
       const res = await apiRequest("POST", "/api/forgot-password", { email });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to send reset email");
+      }
       return await res.json();
     },
     onSuccess: (data) => {
@@ -69,6 +73,7 @@ export default function AuthPage() {
       }
     },
     onError: (error: any) => {
+      console.error("Forgot password error:", error);
       setErrorMessage(error.message || "Failed to send reset email");
       setSuccessMessage("");
     },
@@ -77,6 +82,10 @@ export default function AuthPage() {
   const resetPasswordMutation = useMutation({
     mutationFn: async ({ token, newPassword }: { token: string; newPassword: string }) => {
       const res = await apiRequest("POST", "/api/reset-password", { token, newPassword });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to reset password");
+      }
       return await res.json();
     },
     onSuccess: (data) => {
@@ -87,6 +96,7 @@ export default function AuthPage() {
       setForgotPasswordData({ email: "" });
     },
     onError: (error: any) => {
+      console.error("Reset password error:", error);
       setErrorMessage(error.message || "Failed to reset password");
       setSuccessMessage("");
     },
@@ -104,6 +114,16 @@ export default function AuthPage() {
     setSuccessMessage("");
     setErrorMessage("");
     
+    if (!resetPasswordData.token.trim()) {
+      setErrorMessage("Reset token is required");
+      return;
+    }
+
+    if (!resetPasswordData.newPassword.trim()) {
+      setErrorMessage("New password is required");
+      return;
+    }
+
     if (resetPasswordData.newPassword !== resetPasswordData.confirmPassword) {
       setErrorMessage("Passwords do not match");
       return;
