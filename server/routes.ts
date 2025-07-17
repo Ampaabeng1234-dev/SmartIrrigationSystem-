@@ -516,6 +516,8 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Use the regular password change endpoint for your own password" });
       }
 
+      console.log(`Admin resetting password for user ${user.username} (ID: ${userId}) to: "${newPassword}"`);
+
       // Hash new password
       const { scrypt, randomBytes } = await import("crypto");
       const { promisify } = await import("util");
@@ -528,7 +530,12 @@ export function registerRoutes(app: Express): Server {
       // Update password
       await storage.updatePassword(userId, hashedPassword);
 
-      res.json({ message: `Password reset successfully for user ${user.username}` });
+      console.log(`Password successfully updated for user ${user.username}`);
+
+      res.json({ 
+        message: `Password reset successfully for user ${user.username}`,
+        newPassword: newPassword // This will show you exactly what password was set
+      });
     } catch (error) {
       console.error("Error resetting password:", error);
       res.status(500).json({ message: "Failed to reset password" });
