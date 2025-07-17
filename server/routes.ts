@@ -307,6 +307,65 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Database Backup API (Admin only)
+  app.post("/api/system/backup", requireAdmin, async (req, res) => {
+    try {
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execAsync = promisify(exec);
+      
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const backupFile = `backup_${timestamp}.sql`;
+      
+      await execAsync(`pg_dump $DATABASE_URL > ${backupFile}`);
+      
+      res.json({ 
+        message: "Database backup created successfully",
+        filename: backupFile,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Backup error:", error);
+      res.status(500).json({ message: "Failed to create database backup" });
+    }
+  });
+
+  app.get("/api/system/backups", requireAdmin, async (req, res) => {
+    try {
+      const { readdir, stat } = await import('fs/promises');
+      const { join } = await import('path');
+      
+      try {
+        const files = await readdir('./backups');
+        const backupFiles = files.filter(file => file.endsWith('.sql') || file.endsWith('.dump'));
+        
+        const backups = await Promise.all(
+          backupFiles.map(async (file) => {
+            const filePath = join('./backups', file);
+            const stats = await stat(filePath);
+            return {
+              filename: file,
+              size: stats.size,
+              created: stats.mtime,
+              type: file.includes('full') ? 'full' : 
+                    file.includes('schema') ? 'schema' : 
+                    file.includes('data') ? 'data' : 
+                    file.includes('compressed') ? 'compressed' : 'manual'
+            };
+          })
+        );
+        
+        res.json(backups.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()));
+      } catch (error) {
+        // If backups directory doesn't exist, return empty array
+        res.json([]);
+      }
+    } catch (error) {
+      console.error("Error listing backups:", error);
+      res.status(500).json({ message: "Failed to list backups" });
+    }
+  });
+
   // Initialize sensor data simulation
   sensorDataService.startSimulation();
 

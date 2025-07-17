@@ -1,0 +1,17 @@
+Backup Created: Thu Jul 17 01:17:52 PM UTC 2025
+Database: Smart Irrigation Management System
+Backup Files:
+- full_backup_20250717_131713.sql (Complete database)
+- schema_backup_20250717_131713.sql (Structure only)
+- data_backup_20250717_131713.sql (Data only)
+- compressed_backup_20250717_131713.dump (Compressed format)
+- users_backup_20250717_131713.sql (Users table)
+- crops_backup_20250717_131713.sql (Crops table)
+- zones_backup_20250717_131713.sql (Irrigation zones)
+- sensors_backup_20250717_131713.sql (Sensor readings)
+
+Restore Instructions:
+1. Full restore: psql $DATABASE_URL < full_backup_20250717_131713.sql
+2. Schema only: psql $DATABASE_URL < schema_backup_20250717_131713.sql
+3. Data only: psql $DATABASE_URL < data_backup_20250717_131713.sql
+4. Compressed: pg_restore -d $DATABASE_URL compressed_backup_20250717_131713.dump

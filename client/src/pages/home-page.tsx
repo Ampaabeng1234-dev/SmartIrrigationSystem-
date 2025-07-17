@@ -6,6 +6,7 @@ import { IrrigationZones } from "@/components/dashboard/irrigation-zones";
 import { CropManagement } from "@/components/dashboard/crop-management";
 import { SystemControl } from "@/components/dashboard/system-control";
 import { UserManagement } from "@/components/dashboard/user-management";
+import { BackupManagement } from "@/components/dashboard/backup-management";
 import { useAuth } from "@/hooks/use-auth";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle, X } from "lucide-react";
@@ -78,8 +79,9 @@ export default function HomePage() {
         </div>
 
         {user?.role === "admin" && (
-          <div className="mb-8">
+          <div className="space-y-8 mb-8">
             <UserManagement />
+            <BackupManagement />
           </div>
         )}
       </div>
