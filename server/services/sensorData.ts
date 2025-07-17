@@ -4,6 +4,22 @@ import { weatherService } from "./weather";
 class SensorDataService {
   private isSimulating = false;
   private simulationInterval: NodeJS.Timeout | null = null;
+  private useRealSensors: boolean;
+
+  constructor() {
+    this.useRealSensors = process.env.ENABLE_REAL_SENSORS === 'true';
+  }
+
+  async startDataCollection() {
+    if (this.useRealSensors) {
+      console.log("Arduino sensor mode enabled - waiting for real sensor data via API");
+      // Real sensors will send data via /api/sensor-data endpoint
+      // No simulation needed
+    } else {
+      console.log("Simulation mode - generating mock sensor data");
+      await this.startSimulation();
+    }
+  }
 
   async startSimulation() {
     if (this.isSimulating) return;

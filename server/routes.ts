@@ -24,6 +24,42 @@ export function registerRoutes(app: Express): Server {
     });
   });
 
+  // Arduino sensor data endpoint
+  app.post("/api/sensor-data", async (req, res) => {
+    try {
+      // Optional: API key authentication
+      const apiKey = req.headers.authorization?.replace('Bearer ', '');
+      if (process.env.ARDUINO_API_KEY && apiKey !== process.env.ARDUINO_API_KEY) {
+        return res.status(401).json({ error: "Invalid API key" });
+      }
+
+      const { zoneId, moistureLevel, temperature, humidity, timestamp } = req.body;
+      
+      // Validate required fields
+      if (!zoneId || moistureLevel === undefined || temperature === undefined || humidity === undefined) {
+        return res.status(400).json({ error: "Missing required sensor data" });
+      }
+
+      // Store sensor reading
+      const reading = await storage.createSensorReading({
+        zoneId: parseInt(zoneId),
+        moistureLevel: parseFloat(moistureLevel),
+        temperature: parseFloat(temperature),
+        humidity: parseFloat(humidity)
+      });
+
+      console.log(`Arduino data received - Zone ${zoneId}: ${moistureLevel}% moisture, ${temperature}°C, ${humidity}% humidity`);
+      
+      res.status(201).json({ 
+        message: "Sensor data received successfully", 
+        readingId: reading.id 
+      });
+    } catch (error) {
+      console.error("Error processing Arduino sensor data:", error);
+      res.status(500).json({ error: "Failed to process sensor data" });
+    }
+  });
+
   // Setup authentication routes
   setupAuth(app);
 
