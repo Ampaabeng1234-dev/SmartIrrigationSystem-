@@ -12,6 +12,15 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  used: boolean("used").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const crops = pgTable("crops", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -71,6 +80,14 @@ export const chatMessages = pgTable("chat_messages", {
 export const usersRelations = relations(users, ({ many }) => ({
   sensorReadings: many(sensorReadings),
   chatMessages: many(chatMessages),
+  passwordResetTokens: many(passwordResetTokens),
+}));
+
+export const passwordResetTokensRelations = relations(passwordResetTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [passwordResetTokens.userId],
+    references: [users.id],
+  }),
 }));
 
 export const cropsRelations = relations(crops, ({ many }) => ({
@@ -113,6 +130,12 @@ export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
   password: true,
   role: true,
+});
+
+export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).pick({
+  userId: true,
+  token: true,
+  expiresAt: true,
 });
 
 export const insertCropSchema = createInsertSchema(crops).pick({
@@ -159,6 +182,8 @@ export const insertChatMessageSchema = createInsertSchema(chatMessages).pick({
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
 export type Crop = typeof crops.$inferSelect;
 export type InsertCrop = z.infer<typeof insertCropSchema>;
 export type IrrigationZone = typeof irrigationZones.$inferSelect;

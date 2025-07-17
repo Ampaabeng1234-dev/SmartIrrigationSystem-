@@ -1,5 +1,6 @@
 import { 
   users, 
+  passwordResetTokens,
   crops, 
   irrigationZones, 
   sensorReadings, 
@@ -8,6 +9,8 @@ import {
   chatMessages,
   type User, 
   type InsertUser,
+  type PasswordResetToken,
+  type InsertPasswordResetToken,
   type Crop,
   type InsertCrop,
   type IrrigationZone,
@@ -22,7 +25,7 @@ import {
   type InsertChatMessage
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, gte } from "drizzle-orm";
+import { eq, desc, and, gte, lt } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -39,6 +42,12 @@ export interface IStorage {
   updateUser(id: number, updates: Partial<InsertUser>): Promise<User | undefined>;
   updateUserRole(id: number, role: string): Promise<User | undefined>;
   deleteUser(id: number): Promise<boolean>;
+  updatePassword(id: number, password: string): Promise<User | undefined>;
+  
+  // Password Reset Tokens
+  createPasswordResetToken(token: InsertPasswordResetToken): Promise<PasswordResetToken>;
+  getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
+  invalidatePasswordResetToken(id: number): Promise<boolean>;
   
   // Crops
   getAllCrops(): Promise<Crop[]>;
@@ -135,7 +144,41 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(id: number): Promise<boolean> {
     const result = await db.delete(users).where(eq(users.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async updatePassword(id: number, password: string): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ password })
+      .where(eq(users.id, id))
+      .returning();
+    return user || undefined;
+  }
+
+  // Password Reset Tokens
+  async createPasswordResetToken(insertToken: InsertPasswordResetToken): Promise<PasswordResetToken> {
+    const [token] = await db
+      .insert(passwordResetTokens)
+      .values(insertToken)
+      .returning();
+    return token;
+  }
+
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    const [resetToken] = await db
+      .select()
+      .from(passwordResetTokens)
+      .where(eq(passwordResetTokens.token, token));
+    return resetToken || undefined;
+  }
+
+  async invalidatePasswordResetToken(id: number): Promise<boolean> {
+    const result = await db
+      .update(passwordResetTokens)
+      .set({ used: true })
+      .where(eq(passwordResetTokens.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Crops

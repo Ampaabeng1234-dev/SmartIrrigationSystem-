@@ -40,14 +40,18 @@ Preferred communication style: Simple, everyday language.
 - Role-based access control (admin/user roles)
 - Protected routes with authentication middleware
 - Session persistence across browser restarts
+- Forgot password functionality with secure token-based reset
+- Password reset tokens with 1-hour expiration
 
 ### Data Models
 - **Users**: Username, email, password, role, timestamps
+- **Password Reset Tokens**: Secure tokens for password reset with expiration
 - **Crops**: Name, water requirements, optimal moisture levels, growth stages
 - **Irrigation Zones**: Field areas linked to crops with active status tracking
 - **Sensor Readings**: Real-time moisture, temperature, humidity data
 - **Weather Data**: Current conditions and forecasts
 - **Irrigation Schedules**: Automated watering schedules
+- **Chat Messages**: User support communication system
 
 ### Real-time Features
 - Automatic sensor data simulation (30-second intervals)

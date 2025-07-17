@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Leaf, Droplets, BarChart3, Shield } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Leaf, Droplets, BarChart3, Shield, CheckCircle, AlertCircle } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
@@ -19,10 +22,15 @@ export default function AuthPage() {
     password: "", 
     role: "user" 
   });
+  const [forgotPasswordData, setForgotPasswordData] = useState({ email: "" });
+  const [resetPasswordData, setResetPasswordData] = useState({ token: "", newPassword: "", confirmPassword: "" });
+  const [showResetForm, setShowResetForm] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
-  // Redirect if already logged in
+  // Redirect if already logged in (only after hooks are called)
   if (user) {
-    setLocation("/");
+    setTimeout(() => setLocation("/"), 0);
     return null;
   }
 
@@ -46,6 +54,72 @@ export default function AuthPage() {
     }
   };
 
+  const forgotPasswordMutation = useMutation({
+    mutationFn: async (email: string) => {
+      const res = await apiRequest("POST", "/api/forgot-password", { email });
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      setSuccessMessage(data.message);
+      setErrorMessage("");
+      if (data.resetToken) {
+        // For testing - in production, this would come via email
+        setResetPasswordData(prev => ({ ...prev, token: data.resetToken }));
+        setShowResetForm(true);
+      }
+    },
+    onError: (error: any) => {
+      setErrorMessage(error.message || "Failed to send reset email");
+      setSuccessMessage("");
+    },
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async ({ token, newPassword }: { token: string; newPassword: string }) => {
+      const res = await apiRequest("POST", "/api/reset-password", { token, newPassword });
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      setSuccessMessage(data.message);
+      setErrorMessage("");
+      setShowResetForm(false);
+      setResetPasswordData({ token: "", newPassword: "", confirmPassword: "" });
+      setForgotPasswordData({ email: "" });
+    },
+    onError: (error: any) => {
+      setErrorMessage(error.message || "Failed to reset password");
+      setSuccessMessage("");
+    },
+  });
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSuccessMessage("");
+    setErrorMessage("");
+    forgotPasswordMutation.mutate(forgotPasswordData.email);
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSuccessMessage("");
+    setErrorMessage("");
+    
+    if (resetPasswordData.newPassword !== resetPasswordData.confirmPassword) {
+      setErrorMessage("Passwords do not match");
+      return;
+    }
+
+    if (resetPasswordData.newPassword.length < 6) {
+      setErrorMessage("Password must be at least 6 characters long");
+      return;
+    }
+
+    resetPasswordMutation.mutate({
+      token: resetPasswordData.token,
+      newPassword: resetPasswordData.newPassword
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Left side - Authentication Forms */}
@@ -60,9 +134,10 @@ export default function AuthPage() {
           </div>
 
           <Tabs defaultValue="login" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="register">Register</TabsTrigger>
+              <TabsTrigger value="forgot">Reset</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
@@ -155,6 +230,115 @@ export default function AuthPage() {
                       {registerMutation.isPending ? "Creating Account..." : "Create Account"}
                     </Button>
                   </form>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="forgot">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Reset Password</CardTitle>
+                  <CardDescription>
+                    {showResetForm ? 
+                      "Enter your new password below" : 
+                      "Enter your email to receive reset instructions"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {successMessage && (
+                    <Alert className="mb-4">
+                      <CheckCircle className="h-4 w-4" />
+                      <AlertDescription>{successMessage}</AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  {errorMessage && (
+                    <Alert variant="destructive" className="mb-4">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{errorMessage}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  {!showResetForm ? (
+                    <form onSubmit={handleForgotPassword} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="forgot-email">Email Address</Label>
+                        <Input
+                          id="forgot-email"
+                          type="email"
+                          value={forgotPasswordData.email}
+                          onChange={(e) => setForgotPasswordData({ email: e.target.value })}
+                          placeholder="Enter your email address"
+                          required
+                        />
+                      </div>
+                      <Button 
+                        type="submit" 
+                        className="w-full"
+                        disabled={forgotPasswordMutation.isPending}
+                      >
+                        {forgotPasswordMutation.isPending ? "Sending..." : "Send Reset Instructions"}
+                      </Button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleResetPassword} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="reset-token">Reset Token</Label>
+                        <Input
+                          id="reset-token"
+                          type="text"
+                          value={resetPasswordData.token}
+                          onChange={(e) => setResetPasswordData({ ...resetPasswordData, token: e.target.value })}
+                          placeholder="Enter reset token from email"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="new-password">New Password</Label>
+                        <Input
+                          id="new-password"
+                          type="password"
+                          value={resetPasswordData.newPassword}
+                          onChange={(e) => setResetPasswordData({ ...resetPasswordData, newPassword: e.target.value })}
+                          placeholder="Enter new password"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="confirm-password">Confirm Password</Label>
+                        <Input
+                          id="confirm-password"
+                          type="password"
+                          value={resetPasswordData.confirmPassword}
+                          onChange={(e) => setResetPasswordData({ ...resetPasswordData, confirmPassword: e.target.value })}
+                          placeholder="Confirm new password"
+                          required
+                        />
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          className="flex-1"
+                          onClick={() => {
+                            setShowResetForm(false);
+                            setResetPasswordData({ token: "", newPassword: "", confirmPassword: "" });
+                            setSuccessMessage("");
+                            setErrorMessage("");
+                          }}
+                        >
+                          Back
+                        </Button>
+                        <Button 
+                          type="submit" 
+                          className="flex-1"
+                          disabled={resetPasswordMutation.isPending}
+                        >
+                          {resetPasswordMutation.isPending ? "Resetting..." : "Reset Password"}
+                        </Button>
+                      </div>
+                    </form>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
