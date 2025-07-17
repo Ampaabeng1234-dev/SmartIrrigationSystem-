@@ -491,6 +491,50 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Admin password reset endpoint (admins can reset any user's password)
+  app.post("/api/users/:id/reset-password", requireAdmin, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { newPassword } = req.body;
+      
+      if (!newPassword) {
+        return res.status(400).json({ message: "New password is required" });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters long" });
+      }
+
+      // Get user
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Admin cannot reset their own password using this endpoint
+      if (userId === req.user?.id) {
+        return res.status(400).json({ message: "Use the regular password change endpoint for your own password" });
+      }
+
+      // Hash new password
+      const { scrypt, randomBytes } = await import("crypto");
+      const { promisify } = await import("util");
+      const scryptAsync = promisify(scrypt);
+      
+      const salt = randomBytes(16).toString("hex");
+      const buf = (await scryptAsync(newPassword, salt, 64)) as Buffer;
+      const hashedPassword = `${buf.toString("hex")}.${salt}`;
+
+      // Update password
+      await storage.updatePassword(userId, hashedPassword);
+
+      res.json({ message: `Password reset successfully for user ${user.username}` });
+    } catch (error) {
+      console.error("Error resetting password:", error);
+      res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+
   app.patch("/api/users/:id", requireAdmin, async (req, res) => {
     try {
       const userId = parseInt(req.params.id);
