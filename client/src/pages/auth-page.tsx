@@ -36,9 +36,15 @@ export default function AuthPage() {
     }
   }, [user, setLocation]);
 
-  // Don't render anything if user is logged in (redirect will happen in useEffect)
+  // Don't render the auth form if user is logged in (redirect will happen in useEffect)
   if (user) {
-    return null;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">Redirecting to dashboard...</p>
+        </div>
+      </div>
+    );
   }
 
   const handleLogin = async (e: React.FormEvent) => {
