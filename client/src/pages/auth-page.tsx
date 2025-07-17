@@ -49,21 +49,29 @@ export default function AuthPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage("");
+    setSuccessMessage("");
+    
     try {
       await loginMutation.mutateAsync(loginData);
       setLocation("/");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login failed:", error);
+      setErrorMessage(error?.message || "Login failed. Please check your credentials.");
     }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage("");
+    setSuccessMessage("");
+    
     try {
       await registerMutation.mutateAsync(registerData);
       setLocation("/");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Registration failed:", error);
+      setErrorMessage(error?.message || "Registration failed. Please try again.");
     }
   };
 
