@@ -491,6 +491,106 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Notifications API
+  app.get("/api/notifications", requireAuth, async (req, res) => {
+    try {
+      const notifications = [];
+      
+      // Get recent sensor readings for moisture alerts
+      const sensorReadings = await storage.getSensorReadings(undefined, 10);
+      const zones = await storage.getAllZones();
+      
+      // Check for low moisture alerts
+      const lowMoistureReadings = sensorReadings.filter(reading => reading.moistureLevel < 20);
+      lowMoistureReadings.forEach(reading => {
+        const zone = zones.find(z => z.id === reading.zoneId);
+        notifications.push({
+          id: `moisture-${reading.id}`,
+          type: "warning",
+          title: "Low Soil Moisture",
+          message: `${zone?.name || 'Zone'} moisture level is ${reading.moistureLevel}%. Irrigation recommended.`,
+          timestamp: reading.timestamp,
+          isRead: false,
+          category: "irrigation"
+        });
+      });
+
+      // Check for high temperature alerts
+      const highTempReadings = sensorReadings.filter(reading => reading.temperature && reading.temperature > 35);
+      highTempReadings.forEach(reading => {
+        const zone = zones.find(z => z.id === reading.zoneId);
+        notifications.push({
+          id: `temp-${reading.id}`,
+          type: "alert",
+          title: "High Temperature Alert",
+          message: `${zone?.name || 'Zone'} temperature is ${reading.temperature}°C. Monitor crops closely.`,
+          timestamp: reading.timestamp,
+          isRead: false,
+          category: "irrigation"
+        });
+      });
+
+      // Weather-based notifications
+      const weather = await weatherService.getCurrentWeather();
+      if (weather && weather.precipitation > 80) {
+        notifications.push({
+          id: "weather-rain",
+          type: "info",
+          title: "Heavy Rain Expected",
+          message: "High precipitation forecast. Consider adjusting irrigation schedules.",
+          timestamp: new Date(),
+          isRead: false,
+          category: "weather"
+        });
+      }
+
+      // Admin-specific notifications
+      if (req.user!.role === "admin") {
+        // Check for unread chat messages
+        const conversations = await storage.getAllChatConversations();
+        const unreadChats = conversations.filter(conv => conv.unreadCount > 0);
+        
+        if (unreadChats.length > 0) {
+          notifications.push({
+            id: "chat-unread",
+            type: "info",
+            title: "New Support Messages",
+            message: `${unreadChats.length} conversation(s) have unread messages.`,
+            timestamp: new Date(),
+            isRead: false,
+            category: "chat"
+          });
+        }
+
+        // System status notifications
+        const allUsers = await storage.getAllUsers();
+        const recentUsers = allUsers.filter(user => 
+          user.createdAt && new Date(user.createdAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)
+        );
+        
+        if (recentUsers.length > 0) {
+          notifications.push({
+            id: "new-users",
+            type: "info",
+            title: "New User Registrations",
+            message: `${recentUsers.length} new user(s) registered in the last 24 hours.`,
+            timestamp: new Date(),
+            isRead: false,
+            category: "user"
+          });
+        }
+      }
+
+      // Sort by timestamp (newest first)
+      notifications.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      
+      res.json(notifications.slice(0, 20)); // Limit to 20 most recent
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
   // Initialize sensor data simulation
   sensorDataService.startSimulation();
 

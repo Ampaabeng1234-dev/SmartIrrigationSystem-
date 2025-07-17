@@ -23,6 +23,7 @@ import {
   MessageCircle
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { NotificationDropdown } from "./notification-dropdown";
 
 export function NavigationHeader() {
   const { user, logoutMutation } = useAuth();
@@ -125,14 +126,7 @@ export function NavigationHeader() {
             </div>
             
             {/* Notifications */}
-            <div className="relative">
-              <Button variant="ghost" size="icon">
-                <Bell className="h-5 w-5" />
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs">
-                  1
-                </Badge>
-              </Button>
-            </div>
+            <NotificationDropdown />
             
             {/* Mobile Menu */}
             <Sheet>
