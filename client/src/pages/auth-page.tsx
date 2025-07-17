@@ -1,0 +1,199 @@
+import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { useLocation } from "wouter";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { Leaf, Droplets, BarChart3, Shield } from "lucide-react";
+
+export default function AuthPage() {
+  const { user, loginMutation, registerMutation } = useAuth();
+  const [, setLocation] = useLocation();
+  const [loginData, setLoginData] = useState({ username: "", password: "" });
+  const [registerData, setRegisterData] = useState({ 
+    username: "", 
+    email: "", 
+    password: "", 
+    role: "user" 
+  });
+
+  // Redirect if already logged in
+  if (user) {
+    setLocation("/");
+    return null;
+  }
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await loginMutation.mutateAsync(loginData);
+      setLocation("/");
+    } catch (error) {
+      console.error("Login failed:", error);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await registerMutation.mutateAsync(registerData);
+      setLocation("/");
+    } catch (error) {
+      console.error("Registration failed:", error);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Left side - Authentication Forms */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center mb-4">
+              <Leaf className="h-10 w-10 text-primary mr-2" />
+              <h1 className="text-3xl font-bold text-gray-900">AgriSmart</h1>
+            </div>
+            <p className="text-gray-600">Smart Irrigation Management System</p>
+          </div>
+
+          <Tabs defaultValue="login" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="login">Login</TabsTrigger>
+              <TabsTrigger value="register">Register</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="login">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Welcome Back</CardTitle>
+                  <CardDescription>
+                    Sign in to your AgriSmart account
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleLogin} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="username">Username</Label>
+                      <Input
+                        id="username"
+                        type="text"
+                        value={loginData.username}
+                        onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        value={loginData.password}
+                        onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <Button 
+                      type="submit" 
+                      className="w-full"
+                      disabled={loginMutation.isPending}
+                    >
+                      {loginMutation.isPending ? "Signing in..." : "Sign In"}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="register">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Create Account</CardTitle>
+                  <CardDescription>
+                    Join AgriSmart to start managing your irrigation system
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleRegister} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="reg-username">Username</Label>
+                      <Input
+                        id="reg-username"
+                        type="text"
+                        value={registerData.username}
+                        onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="reg-email">Email</Label>
+                      <Input
+                        id="reg-email"
+                        type="email"
+                        value={registerData.email}
+                        onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="reg-password">Password</Label>
+                      <Input
+                        id="reg-password"
+                        type="password"
+                        value={registerData.password}
+                        onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <Button 
+                      type="submit" 
+                      className="w-full"
+                      disabled={registerMutation.isPending}
+                    >
+                      {registerMutation.isPending ? "Creating Account..." : "Create Account"}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+
+      {/* Right side - Hero Section */}
+      <div className="flex-1 bg-gradient-to-br from-green-600 to-blue-600 flex items-center justify-center p-8">
+        <div className="text-center text-white max-w-md">
+          <h2 className="text-4xl font-bold mb-6">Smart Irrigation Made Simple</h2>
+          <p className="text-xl mb-8 text-green-100">
+            Monitor soil moisture, control irrigation, and optimize water usage with our intelligent system
+          </p>
+          
+          <div className="grid grid-cols-2 gap-6">
+            <div className="text-center">
+              <Droplets className="h-12 w-12 mx-auto mb-2 text-blue-200" />
+              <h3 className="font-semibold mb-1">Water Management</h3>
+              <p className="text-sm text-green-100">Optimize water usage with smart sensors</p>
+            </div>
+            <div className="text-center">
+              <BarChart3 className="h-12 w-12 mx-auto mb-2 text-blue-200" />
+              <h3 className="font-semibold mb-1">Real-time Analytics</h3>
+              <p className="text-sm text-green-100">Track moisture levels and trends</p>
+            </div>
+            <div className="text-center">
+              <Shield className="h-12 w-12 mx-auto mb-2 text-blue-200" />
+              <h3 className="font-semibold mb-1">Secure Access</h3>
+              <p className="text-sm text-green-100">Role-based user management</p>
+            </div>
+            <div className="text-center">
+              <Leaf className="h-12 w-12 mx-auto mb-2 text-blue-200" />
+              <h3 className="font-semibold mb-1">Crop Optimization</h3>
+              <p className="text-sm text-green-100">Tailored irrigation for different crops</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

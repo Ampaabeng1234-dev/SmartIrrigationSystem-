@@ -1,0 +1,315 @@
+import type { Express } from "express";
+import { createServer, type Server } from "http";
+import { setupAuth } from "./auth";
+import { storage } from "./storage";
+import { 
+  insertCropSchema, 
+  insertIrrigationZoneSchema, 
+  insertSensorReadingSchema,
+  insertWeatherDataSchema,
+  insertIrrigationScheduleSchema
+} from "@shared/schema";
+import { z } from "zod";
+import { weatherService } from "./services/weather";
+import { sensorDataService } from "./services/sensorData";
+
+export function registerRoutes(app: Express): Server {
+  // Setup authentication routes
+  setupAuth(app);
+
+  // Middleware to check if user is authenticated
+  const requireAuth = (req: any, res: any, next: any) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    next();
+  };
+
+  // Middleware to check if user is admin
+  const requireAdmin = (req: any, res: any, next: any) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    next();
+  };
+
+  // Dashboard stats
+  app.get("/api/dashboard/stats", requireAuth, async (req, res) => {
+    try {
+      const zones = await storage.getAllZones();
+      const activeZones = zones.filter(zone => zone.isActive);
+      
+      // Get average moisture from recent readings
+      const readings = await storage.getSensorReadings(undefined, 10);
+      const avgMoisture = readings.length > 0 
+        ? readings.reduce((sum, reading) => sum + reading.moistureLevel, 0) / readings.length
+        : 0;
+
+      const stats = {
+        avgMoisture: Math.round(avgMoisture),
+        activeZones: activeZones.length,
+        totalZones: zones.length,
+        waterUsage: 1247, // This could be calculated from irrigation logs
+        systemStatus: "online",
+        sensorsOnline: zones.length,
+        lastSync: new Date().toISOString()
+      };
+
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch dashboard stats" });
+    }
+  });
+
+  // Crops API
+  app.get("/api/crops", requireAuth, async (req, res) => {
+    try {
+      const crops = await storage.getAllCrops();
+      res.json(crops);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch crops" });
+    }
+  });
+
+  app.post("/api/crops", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertCropSchema.parse(req.body);
+      const crop = await storage.createCrop(validatedData);
+      res.status(201).json(crop);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid crop data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create crop" });
+      }
+    }
+  });
+
+  app.put("/api/crops/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertCropSchema.partial().parse(req.body);
+      const crop = await storage.updateCrop(id, validatedData);
+      
+      if (!crop) {
+        return res.status(404).json({ message: "Crop not found" });
+      }
+      
+      res.json(crop);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid crop data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update crop" });
+      }
+    }
+  });
+
+  app.delete("/api/crops/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteCrop(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Crop not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete crop" });
+    }
+  });
+
+  // Irrigation Zones API
+  app.get("/api/zones", requireAuth, async (req, res) => {
+    try {
+      const zones = await storage.getAllZones();
+      
+      // Get latest sensor readings for each zone
+      const zonesWithData = await Promise.all(
+        zones.map(async (zone) => {
+          const latestReading = await storage.getLatestSensorReading(zone.id);
+          const crop = zone.cropId ? await storage.getCrop(zone.cropId) : null;
+          
+          return {
+            ...zone,
+            moistureLevel: latestReading?.moistureLevel || 0,
+            temperature: latestReading?.temperature || 0,
+            humidity: latestReading?.humidity || 0,
+            crop: crop
+          };
+        })
+      );
+      
+      res.json(zonesWithData);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch zones" });
+    }
+  });
+
+  app.post("/api/zones", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertIrrigationZoneSchema.parse(req.body);
+      const zone = await storage.createZone(validatedData);
+      res.status(201).json(zone);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid zone data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create zone" });
+      }
+    }
+  });
+
+  app.put("/api/zones/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertIrrigationZoneSchema.partial().parse(req.body);
+      
+      // Update last watered time if activating irrigation
+      if (validatedData.isActive === true) {
+        validatedData.lastWatered = new Date();
+      }
+      
+      const zone = await storage.updateZone(id, validatedData);
+      
+      if (!zone) {
+        return res.status(404).json({ message: "Zone not found" });
+      }
+      
+      res.json(zone);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid zone data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update zone" });
+      }
+    }
+  });
+
+  app.delete("/api/zones/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteZone(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Zone not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete zone" });
+    }
+  });
+
+  // Sensor Readings API
+  app.get("/api/sensor-readings", requireAuth, async (req, res) => {
+    try {
+      const zoneId = req.query.zoneId ? parseInt(req.query.zoneId as string) : undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      
+      const readings = await storage.getSensorReadings(zoneId, limit);
+      res.json(readings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch sensor readings" });
+    }
+  });
+
+  app.post("/api/sensor-readings", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertSensorReadingSchema.parse(req.body);
+      const reading = await storage.createSensorReading(validatedData);
+      res.status(201).json(reading);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid sensor reading data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create sensor reading" });
+      }
+    }
+  });
+
+  // Weather API
+  app.get("/api/weather", requireAuth, async (req, res) => {
+    try {
+      const weatherData = await weatherService.getCurrentWeather();
+      res.json(weatherData);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch weather data" });
+    }
+  });
+
+  app.get("/api/weather/forecast", requireAuth, async (req, res) => {
+    try {
+      const forecast = await weatherService.getForecast();
+      res.json(forecast);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch weather forecast" });
+    }
+  });
+
+  // User Management (Admin only)
+  app.get("/api/users", requireAdmin, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      // Remove passwords from response
+      const safeUsers = users.map(({ password, ...user }) => user);
+      res.json(safeUsers);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.put("/api/users/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { password, ...updates } = req.body;
+      
+      const user = await storage.updateUser(id, updates);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Remove password from response
+      const { password: _, ...safeUser } = user;
+      res.json(safeUser);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  app.delete("/api/users/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteUser(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
+  // System Control API
+  app.post("/api/system/emergency-stop", requireAuth, async (req, res) => {
+    try {
+      const zones = await storage.getAllZones();
+      await Promise.all(
+        zones.map(zone => storage.updateZone(zone.id, { isActive: false }))
+      );
+      res.json({ message: "Emergency stop activated - all zones stopped" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to execute emergency stop" });
+    }
+  });
+
+  // Initialize sensor data simulation
+  sensorDataService.startSimulation();
+
+  const httpServer = createServer(app);
+  return httpServer;
+}
