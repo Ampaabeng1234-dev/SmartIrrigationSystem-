@@ -10,18 +10,24 @@ import AuthPage from "@/pages/auth-page";
 import AnalyticsPage from "@/pages/analytics-page";
 import IrrigationControlPage from "@/pages/irrigation-control-page";
 import UserManagementPage from "@/pages/user-management-page";
+import ChatManagementPage from "@/pages/chat-management-page";
 import NotFound from "@/pages/not-found";
+import { ChatWidget } from "@/components/dashboard/chat-widget";
 
 function Router() {
   return (
-    <Switch>
-      <ProtectedRoute path="/" component={HomePage} />
-      <ProtectedRoute path="/analytics" component={AnalyticsPage} />
-      <ProtectedRoute path="/irrigation" component={IrrigationControlPage} />
-      <ProtectedRoute path="/users" component={UserManagementPage} />
-      <Route path="/auth" component={AuthPage} />
-      <Route component={NotFound} />
-    </Switch>
+    <>
+      <Switch>
+        <ProtectedRoute path="/" component={HomePage} />
+        <ProtectedRoute path="/analytics" component={AnalyticsPage} />
+        <ProtectedRoute path="/irrigation" component={IrrigationControlPage} />
+        <ProtectedRoute path="/users" component={UserManagementPage} />
+        <ProtectedRoute path="/chat" component={ChatManagementPage} />
+        <Route path="/auth" component={AuthPage} />
+        <Route component={NotFound} />
+      </Switch>
+      <ChatWidget />
+    </>
   );
 }
 

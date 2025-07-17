@@ -19,7 +19,8 @@ import {
   LogOut,
   Cloud,
   Sun,
-  Menu
+  Menu,
+  MessageCircle
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -73,15 +74,27 @@ export function NavigationHeader() {
       </Link>
       
       {user?.role === "admin" && (
-        <Link href="/users">
-          <Button 
-            variant={isActive("/users") ? "default" : "ghost"}
-            className="justify-start"
-          >
-            <Users className="h-4 w-4 mr-2" />
-            User Management
-          </Button>
-        </Link>
+        <>
+          <Link href="/users">
+            <Button 
+              variant={isActive("/users") ? "default" : "ghost"}
+              className="justify-start"
+            >
+              <Users className="h-4 w-4 mr-2" />
+              User Management
+            </Button>
+          </Link>
+          
+          <Link href="/chat">
+            <Button 
+              variant={isActive("/chat") ? "default" : "ghost"}
+              className="justify-start"
+            >
+              <MessageCircle className="h-4 w-4 mr-2" />
+              Chat Support
+            </Button>
+          </Link>
+        </>
       )}
     </>
   );

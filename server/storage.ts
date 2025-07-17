@@ -5,6 +5,7 @@ import {
   sensorReadings, 
   weatherData, 
   irrigationSchedule,
+  chatMessages,
   type User, 
   type InsertUser,
   type Crop,
@@ -16,7 +17,9 @@ import {
   type WeatherData,
   type InsertWeatherData,
   type IrrigationSchedule,
-  type InsertIrrigationSchedule
+  type InsertIrrigationSchedule,
+  type ChatMessage,
+  type InsertChatMessage
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte } from "drizzle-orm";
@@ -65,6 +68,11 @@ export interface IStorage {
   getIrrigationSchedule(zoneId?: number): Promise<IrrigationSchedule[]>;
   createIrrigationSchedule(schedule: InsertIrrigationSchedule): Promise<IrrigationSchedule>;
   updateIrrigationSchedule(id: number, updates: Partial<InsertIrrigationSchedule>): Promise<IrrigationSchedule | undefined>;
+  
+  // Chat Messages
+  getChatMessages(userId?: number): Promise<(ChatMessage & { username: string })[]>;
+  createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
+  getAllChatConversations(): Promise<{ userId: number; username: string; lastMessage: string; lastMessageTime: string; unreadCount: number }[]>;
   
   sessionStore: session.SessionStore;
 }
@@ -275,6 +283,76 @@ export class DatabaseStorage implements IStorage {
       .where(eq(irrigationSchedule.id, id))
       .returning();
     return schedule || undefined;
+  }
+
+  // Chat Messages
+  async getChatMessages(userId?: number): Promise<(ChatMessage & { username: string })[]> {
+    let query = db
+      .select({
+        id: chatMessages.id,
+        userId: chatMessages.userId,
+        message: chatMessages.message,
+        isFromAdmin: chatMessages.isFromAdmin,
+        createdAt: chatMessages.createdAt,
+        username: users.username,
+      })
+      .from(chatMessages)
+      .innerJoin(users, eq(chatMessages.userId, users.id));
+
+    if (userId) {
+      query = query.where(eq(chatMessages.userId, userId));
+    }
+
+    return await query.orderBy(chatMessages.createdAt);
+  }
+
+  async createChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
+    const [newMessage] = await db
+      .insert(chatMessages)
+      .values(message)
+      .returning();
+    return newMessage;
+  }
+
+  async getAllChatConversations(): Promise<{ userId: number; username: string; lastMessage: string; lastMessageTime: string; unreadCount: number }[]> {
+    // Get the latest message for each user
+    const conversations = await db
+      .select({
+        userId: chatMessages.userId,
+        username: users.username,
+        lastMessage: chatMessages.message,
+        lastMessageTime: chatMessages.createdAt,
+        isFromAdmin: chatMessages.isFromAdmin,
+      })
+      .from(chatMessages)
+      .innerJoin(users, eq(chatMessages.userId, users.id))
+      .orderBy(desc(chatMessages.createdAt));
+
+    // Group by user and get the latest message
+    const groupedConversations = new Map();
+    for (const conv of conversations) {
+      if (!groupedConversations.has(conv.userId)) {
+        groupedConversations.set(conv.userId, {
+          userId: conv.userId,
+          username: conv.username,
+          lastMessage: conv.lastMessage,
+          lastMessageTime: conv.lastMessageTime?.toISOString() || new Date().toISOString(),
+          unreadCount: 0,
+        });
+      }
+    }
+
+    // Count unread messages (messages from users, not from admin)
+    for (const conv of conversations) {
+      if (!conv.isFromAdmin) {
+        const existingConv = groupedConversations.get(conv.userId);
+        if (existingConv) {
+          existingConv.unreadCount++;
+        }
+      }
+    }
+
+    return Array.from(groupedConversations.values());
   }
 }
 

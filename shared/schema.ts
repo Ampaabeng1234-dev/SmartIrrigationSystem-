@@ -59,9 +59,18 @@ export const irrigationSchedule = pgTable("irrigation_schedule", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const chatMessages = pgTable("chat_messages", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  message: text("message").notNull(),
+  isFromAdmin: boolean("is_from_admin").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   sensorReadings: many(sensorReadings),
+  chatMessages: many(chatMessages),
 }));
 
 export const cropsRelations = relations(crops, ({ many }) => ({
@@ -88,6 +97,13 @@ export const irrigationScheduleRelations = relations(irrigationSchedule, ({ one 
   zone: one(irrigationZones, {
     fields: [irrigationSchedule.zoneId],
     references: [irrigationZones.id],
+  }),
+}));
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  user: one(users, {
+    fields: [chatMessages.userId],
+    references: [users.id],
   }),
 }));
 
@@ -134,6 +150,12 @@ export const insertIrrigationScheduleSchema = createInsertSchema(irrigationSched
   duration: true,
 });
 
+export const insertChatMessageSchema = createInsertSchema(chatMessages).pick({
+  userId: true,
+  message: true,
+  isFromAdmin: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -147,3 +169,5 @@ export type WeatherData = typeof weatherData.$inferSelect;
 export type InsertWeatherData = z.infer<typeof insertWeatherDataSchema>;
 export type IrrigationSchedule = typeof irrigationSchedule.$inferSelect;
 export type InsertIrrigationSchedule = z.infer<typeof insertIrrigationScheduleSchema>;
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;

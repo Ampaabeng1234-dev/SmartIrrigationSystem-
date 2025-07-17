@@ -7,7 +7,8 @@ import {
   insertIrrigationZoneSchema, 
   insertSensorReadingSchema,
   insertWeatherDataSchema,
-  insertIrrigationScheduleSchema
+  insertIrrigationScheduleSchema,
+  insertChatMessageSchema
 } from "@shared/schema";
 import { z } from "zod";
 import { weatherService } from "./services/weather";
@@ -422,6 +423,71 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error listing backups:", error);
       res.status(500).json({ message: "Failed to list backups" });
+    }
+  });
+
+  // Chat API
+  app.get("/api/chat/messages", requireAuth, async (req, res) => {
+    try {
+      const userId = req.query.userId ? parseInt(req.query.userId as string) : req.user!.id;
+      
+      // Non-admin users can only see their own messages
+      if (req.user!.role !== "admin" && userId !== req.user!.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const messages = await storage.getChatMessages(userId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching chat messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  app.post("/api/chat/messages", requireAuth, async (req, res) => {
+    try {
+      const { message, userId } = req.body;
+      
+      // Determine the target user and admin status
+      let targetUserId: number;
+      let isFromAdmin = false;
+      
+      if (req.user!.role === "admin" && userId) {
+        // Admin sending message to specific user
+        targetUserId = userId;
+        isFromAdmin = true;
+      } else {
+        // Regular user sending message
+        targetUserId = req.user!.id;
+        isFromAdmin = false;
+      }
+      
+      const validatedData = insertChatMessageSchema.parse({
+        userId: targetUserId,
+        message,
+        isFromAdmin
+      });
+      
+      const newMessage = await storage.createChatMessage(validatedData);
+      res.status(201).json(newMessage);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid message data", errors: error.errors });
+      } else {
+        console.error("Error creating chat message:", error);
+        res.status(500).json({ message: "Failed to send message" });
+      }
+    }
+  });
+
+  // Admin Chat Management
+  app.get("/api/chat/conversations", requireAdmin, async (req, res) => {
+    try {
+      const conversations = await storage.getAllChatConversations();
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error fetching conversations:", error);
+      res.status(500).json({ message: "Failed to fetch conversations" });
     }
   });
 
