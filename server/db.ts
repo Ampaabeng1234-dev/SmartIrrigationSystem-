@@ -125,6 +125,28 @@ export async function initializeDatabase() {
     `);
 
     console.log("Database tables created successfully");
+    
+    // Initialize admin user if none exists
+    const existingAdmin = sqlite.prepare("SELECT * FROM users WHERE role = 'admin'").get();
+    if (!existingAdmin) {
+      // Create admin user Samuel with the correct password
+      const { scrypt, randomBytes } = await import("crypto");
+      const { promisify } = await import("util");
+      const scryptAsync = promisify(scrypt);
+      
+      const password = "Alpha@22";
+      const salt = randomBytes(16).toString("hex");
+      const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+      const hashedPassword = `${buf.toString("hex")}.${salt}`;
+      
+      sqlite.prepare(`
+        INSERT INTO users (username, email, password, role, created_at)
+        VALUES (?, ?, ?, 'admin', CURRENT_TIMESTAMP)
+      `).run("Samuel", "projechosting425@gmail.com", hashedPassword);
+      
+      console.log("Admin user 'Samuel' created successfully");
+    }
+    
     return true;
   } catch (error) {
     console.error("Database initialization failed:", error);
