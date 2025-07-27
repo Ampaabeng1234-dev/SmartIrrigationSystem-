@@ -26,11 +26,14 @@ A comprehensive full-stack web application for monitoring and controlling smart 
 ### Prerequisites
 - Node.js 18+ 
 - PostgreSQL database
-- npm or yarn
+- Visual Studio Code (recommended)
 
 ### Installation
 
 ```bash
+# Clone or extract project
+cd smart-irrigation-system
+
 # Install dependencies
 npm install
 
@@ -46,6 +49,16 @@ npm run dev
 ```
 
 The application will be available at `http://localhost:5000`
+
+### Visual Studio Code Setup
+
+For the best development experience with VS Code:
+
+1. Open the project: `code .`
+2. Install recommended extensions when prompted
+3. Use `F5` to start debugging or `Ctrl+Shift+P` → "Tasks: Run Task" → "Start Development Server"
+
+See `VSCODE_SETUP.md` for detailed VS Code configuration guide.
 
 ## Default Accounts
 
