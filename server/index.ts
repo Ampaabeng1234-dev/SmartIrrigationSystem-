@@ -37,6 +37,17 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Initialize database and tables first
+  try {
+    const { initializeDatabase } = await import("./db");
+    await initializeDatabase();
+    console.log("Database initialized successfully");
+  } catch (error) {
+    console.error("Failed to initialize database:", error);
+    console.log("Please ensure MySQL is running and check your DATABASE_URL in .env file");
+    process.exit(1);
+  }
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

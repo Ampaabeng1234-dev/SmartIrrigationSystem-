@@ -1,79 +1,79 @@
-import { pgTable, text, serial, integer, boolean, timestamp, real, varchar } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
+export const users = sqliteTable("users", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   username: text("username").notNull().unique(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
-  role: varchar("role", { length: 20 }).notNull().default("user"),
-  createdAt: timestamp("created_at").defaultNow(),
+  role: text("role").notNull().default("user"),
+  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const passwordResetTokens = pgTable("password_reset_tokens", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
+export const passwordResetTokens = sqliteTable("password_reset_tokens", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").references(() => users.id).notNull(),  
   token: text("token").notNull().unique(),
-  expiresAt: timestamp("expires_at").notNull(),
-  used: boolean("used").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: text("expires_at").notNull(),
+  used: integer("used", { mode: "boolean" }).default(false),
+  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const crops = pgTable("crops", {
-  id: serial("id").primaryKey(),
+export const crops = sqliteTable("crops", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   waterRequirement: text("water_requirement").notNull(),
   optimalMoisture: integer("optimal_moisture").notNull(),
   growthStage: text("growth_stage").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const irrigationZones = pgTable("irrigation_zones", {
-  id: serial("id").primaryKey(),
+export const irrigationZones = sqliteTable("irrigation_zones", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   field: text("field").notNull(),
   cropId: integer("crop_id").references(() => crops.id),
-  isActive: boolean("is_active").default(false),
-  lastWatered: timestamp("last_watered"),
-  createdAt: timestamp("created_at").defaultNow(),
+  isActive: integer("is_active", { mode: "boolean" }).default(false),
+  lastWatered: text("last_watered"),
+  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const sensorReadings = pgTable("sensor_readings", {
-  id: serial("id").primaryKey(),
+export const sensorReadings = sqliteTable("sensor_readings", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   zoneId: integer("zone_id").references(() => irrigationZones.id),
   moistureLevel: real("moisture_level").notNull(),
   temperature: real("temperature"),
   humidity: real("humidity"),
-  timestamp: timestamp("timestamp").defaultNow(),
+  timestamp: text("timestamp").default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const weatherData = pgTable("weather_data", {
-  id: serial("id").primaryKey(),
+export const weatherData = sqliteTable("weather_data", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   temperature: real("temperature").notNull(),
   humidity: real("humidity").notNull(),
   description: text("description").notNull(),
   windSpeed: real("wind_speed"),
   precipitation: real("precipitation"),
-  timestamp: timestamp("timestamp").defaultNow(),
+  timestamp: text("timestamp").default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const irrigationSchedule = pgTable("irrigation_schedule", {
-  id: serial("id").primaryKey(),
+export const irrigationSchedule = sqliteTable("irrigation_schedule", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   zoneId: integer("zone_id").references(() => irrigationZones.id),
-  scheduledTime: timestamp("scheduled_time").notNull(),
+  scheduledTime: text("scheduled_time").notNull(),
   duration: integer("duration").notNull(), // in minutes
-  isCompleted: boolean("is_completed").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
+  isCompleted: integer("is_completed", { mode: "boolean" }).default(false),
+  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const chatMessages = pgTable("chat_messages", {
-  id: serial("id").primaryKey(),
+export const chatMessages = sqliteTable("chat_messages", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   userId: integer("user_id").references(() => users.id).notNull(),
   message: text("message").notNull(),
-  isFromAdmin: boolean("is_from_admin").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
+  isFromAdmin: integer("is_from_admin", { mode: "boolean" }).default(false),
+  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
 // Relations

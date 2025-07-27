@@ -27,9 +27,9 @@ Preferred communication style: Simple, everyday language.
 - **API Design**: RESTful API with role-based access control
 
 ### Database Design
-- **Database**: PostgreSQL with Drizzle ORM
-- **Connection**: Neon serverless PostgreSQL with connection pooling
-- **Schema Management**: Drizzle Kit for migrations and schema management
+- **Database**: SQLite with Drizzle ORM (in-memory for development)
+- **Connection**: Better-sqlite3 driver for high performance
+- **Schema Management**: Direct table creation with SQL for rapid development
 - **Type Safety**: Full TypeScript integration with schema validation
 
 ## Key Components
@@ -81,11 +81,11 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 ### Core Dependencies
-- **@neondatabase/serverless**: PostgreSQL database connectivity
+- **better-sqlite3**: SQLite database driver for Node.js
 - **drizzle-orm**: Type-safe database ORM
 - **@tanstack/react-query**: Server state management
 - **passport**: Authentication middleware
-- **express-session**: Session management
+- **express-session**: Session management with in-memory store
 - **chart.js**: Data visualization
 
 ### UI Libraries
@@ -114,13 +114,13 @@ Preferred communication style: Simple, everyday language.
 - Environment-based configuration
 
 ### Environment Variables Required
-- `DATABASE_URL`: PostgreSQL connection string
-- `SESSION_SECRET`: Session encryption key
+- `SESSION_SECRET`: Session encryption key (automatically handled in development)
 - `OPENWEATHER_API_KEY` or `WEATHER_API_KEY`: Weather service API key (optional)
+- `DATABASE_URL`: SQLite database file path (uses in-memory by default)
 
 ### Hosting Considerations
 - Requires Node.js runtime environment
-- PostgreSQL database (Neon recommended)
+- SQLite database (in-memory for development, file-based for production)
 - Static file serving capability
-- Session storage persistence
+- Session storage in memory
 - WebSocket support for future real-time features
