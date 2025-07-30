@@ -32,9 +32,11 @@ interface ForecastApiResponse {
 class WeatherService {
   private apiKey: string;
   private baseUrl = "https://api.openweathermap.org/data/2.5";
+  private location: string;
 
   constructor() {
-    this.apiKey = process.env.OPENWEATHER_API_KEY || process.env.WEATHER_API_KEY || "";
+    this.apiKey = process.env.OPENWEATHER_API_KEY || process.env.WEATHER_API_KEY || "d46eff8e34392d8f5b3cf8e666469d11";
+    this.location = "Ghana";
     if (!this.apiKey) {
       console.warn("Weather API key not found. Weather features will be limited.");
     }
@@ -47,7 +49,7 @@ class WeatherService {
 
     try {
       const response = await fetch(
-        `${this.baseUrl}/weather?q=Farm Location&appid=${this.apiKey}&units=metric`
+        `${this.baseUrl}/weather?q=${this.location}&appid=${this.apiKey}&units=metric`
       );
       
       if (!response.ok) {
@@ -77,7 +79,7 @@ class WeatherService {
 
     try {
       const response = await fetch(
-        `${this.baseUrl}/forecast?q=Farm Location&appid=${this.apiKey}&units=metric`
+        `${this.baseUrl}/forecast?q=${this.location}&appid=${this.apiKey}&units=metric`
       );
       
       if (!response.ok) {
